@@ -36,6 +36,7 @@
 *.exe
 *.out
 *.app
+mpu_test
 
 # debug information files
 *.dwo
