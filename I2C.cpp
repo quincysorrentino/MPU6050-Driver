@@ -56,6 +56,28 @@ bool LinuxI2c::ReadByte(uint8_t dev_addr, uint8_t reg, uint8_t* out) {
   return true;
 }
 
+bool LinuxI2c::WriteBit(uint8_t dev_addr, uint8_t reg, uint8_t bit_num,
+                        uint8_t bit_value) {
+  if (bit_num > 7 || bit_value > 1) {
+    return false;
+  }
+
+  uint8_t current = 0;
+  if (!ReadByte(dev_addr, reg, &current)) {
+    return false;
+  }
+
+  const uint8_t mask = static_cast<uint8_t>(1u << bit_num);
+
+  // Always clear the target bit first, then set if requested.
+  uint8_t updated = static_cast<uint8_t>(current & ~mask);
+  if (bit_value == 1) {
+    updated = static_cast<uint8_t>(updated | mask);
+  }
+
+  return WriteByte(dev_addr, reg, updated);
+}
+
 bool LinuxI2c::ReadBlock(uint8_t dev_addr, uint8_t reg, size_t count,
                          std::vector<uint8_t>* out) {
   if (!SetSlaveAddr(dev_addr)) {
