@@ -78,6 +78,39 @@ bool LinuxI2c::WriteBit(uint8_t dev_addr, uint8_t reg, uint8_t bit_num,
   return WriteByte(dev_addr, reg, updated);
 }
 
+bool LinuxI2c::WriteField(uint8_t dev_addr, uint8_t reg, uint8_t bit_start,
+                          uint8_t bit_width, uint8_t value) {
+  if (bit_width == 0 || bit_width > 8 || bit_start + bit_width > 8) {
+    return false;
+  }
+
+  uint8_t current = 0;
+  if (!ReadByte(dev_addr, reg, &current)) {
+    return false;
+  }
+
+  const uint8_t mask = static_cast<uint8_t>(((1u << bit_width) - 1u) << bit_start);
+  const uint8_t updated = static_cast<uint8_t>((current & ~mask) | ((value << bit_start) & mask));
+
+  return WriteByte(dev_addr, reg, updated);
+}
+
+bool LinuxI2c::ReadField(uint8_t dev_addr, uint8_t reg, uint8_t bit_start,
+                         uint8_t bit_width, uint8_t* out) {
+  if (bit_width == 0 || bit_width > 8 || bit_start + bit_width > 8) {
+    return false;
+  }
+
+  uint8_t current = 0;
+  if (!ReadByte(dev_addr, reg, &current)) {
+    return false;
+  }
+
+  const uint8_t mask = static_cast<uint8_t>(((1u << bit_width) - 1u) << bit_start);
+  *out = static_cast<uint8_t>((current & mask) >> bit_start);
+  return true;
+}
+
 bool LinuxI2c::ReadBlock(uint8_t dev_addr, uint8_t reg, size_t count,
                          std::vector<uint8_t>* out) {
   if (!SetSlaveAddr(dev_addr)) {
