@@ -10,7 +10,7 @@ cc_library(
 cc_library(
     name = "mpu6050",
     srcs = ["src/MPU6050.cpp"],
-    hdrs = ["src/headers/MPU6050.h"],
+    hdrs = ["src/headers/MPU6050.h", "src/headers/status.h"],
     strip_include_prefix = "src",
     deps = [":i2c"],
 )

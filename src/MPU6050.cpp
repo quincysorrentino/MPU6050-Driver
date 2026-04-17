@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <cstdint>
+#include <chrono>
+#include <cmath>
 
 MPU6050_Interface::MPU6050_Interface(LinuxI2c *i2c, uint8_t address)
     : i2c_(i2c), addr_(address) {}
@@ -18,15 +20,30 @@ DriverStatus MPU6050_Interface::Initialize()
 
     const uint8_t PWR_MGMT_1 = 0x6B;
 
-    if (!i2c_->WriteBit(addr_, PWR_MGMT_1, 6, 0))
+    DriverStatus wake_status = Wake();
+    if (wake_status != DriverStatus::OK){
+        return wake_status;
+    }
+
+    // set clock source
+    const uint8_t clock_source_ppl = 0x01;
+
+    bool clock_set = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->WriteField(addr_, PWR_MGMT_1, 0, 3, clock_source_ppl)) {
+            clock_set = true;
+            break;
+        }
+    }
+    
+    if (!clock_set)
         return DriverStatus::ERR_I2C_WRITE;
 
-    const uint8_t clock_source_ppl = 0x01;
-    if (!i2c_->WriteField(addr_, PWR_MGMT_1, 0, 3, clock_source_ppl))
-        return DriverStatus::ERR_I2C_WRITE;
+    initialized_ = true;
 
     return DriverStatus::OK;
 }
+
 
 DriverStatus MPU6050_Interface::WHO_AM_I(uint8_t *out) const
 {
@@ -36,24 +53,47 @@ DriverStatus MPU6050_Interface::WHO_AM_I(uint8_t *out) const
     const uint8_t WHO_AM_I_REG = 0x75;
     std::vector<uint8_t> buf;
 
-    if (!i2c_->ReadBlock(addr_, WHO_AM_I_REG, 1, &buf))
+    bool valid_read = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->ReadBlock(addr_, WHO_AM_I_REG, 1, &buf)) {
+            valid_read = true;
+            break;
+        }
+    }
+
+    if (!valid_read){
         return DriverStatus::ERR_I2C_READ;
+    }
 
     *out = buf[0];
     return DriverStatus::OK;
 }
+
 
 DriverStatus MPU6050_Interface::ReadRaw(IMU_Raw *out)
 {
     if (!i2c_)
         return DriverStatus::ERR_NULL_BUS;
 
+    if (!initialized_){
+        return DriverStatus::ERR_NOT_INIT;
+    }
+
     const uint8_t ACCEL_XOUT_H = 0x3B;
     std::vector<uint8_t> buf;
 
-    if (!i2c_->ReadBlock(addr_, ACCEL_XOUT_H, 14, &buf))
-        return DriverStatus::ERR_I2C_READ;
+    bool valid_read = false;
+    for (int retry = 0; retry < 4; retry++){
+        if (i2c_->ReadBlock(addr_, ACCEL_XOUT_H, 14, &buf)){
+            valid_read = true;
+            break;
+        }
+    }
 
+    if (!valid_read){
+        return DriverStatus::ERR_I2C_READ;
+    }
+        
     if (buf.size() < 14)
         return DriverStatus::ERR_BAD_DATA;
 
@@ -73,6 +113,7 @@ DriverStatus MPU6050_Interface::ReadRaw(IMU_Raw *out)
     return DriverStatus::OK;
 }
 
+
 IMU_Data MPU6050_Interface::Scale(const IMU_Raw &raw)
 {
     IMU_Data data{};
@@ -85,6 +126,7 @@ IMU_Data MPU6050_Interface::Scale(const IMU_Raw &raw)
     data.gz = raw.gz / gyro_scale_;
     return data;
 }
+
 
 /**
  * Read() — Get all sensor data in one shot.
@@ -103,6 +145,7 @@ DriverStatus MPU6050_Interface::Read(IMU_Data *out)
     return DriverStatus::OK;
 }
 
+
 /**
  * SetAccelRange() — Change accelerometer sensitivity.
  * Writes to ACCEL_CONFIG (0x1C), specifically bits 4:3.
@@ -114,14 +157,44 @@ DriverStatus MPU6050_Interface::SetAccelRange(const int setting)
     if (setting < 0 || setting > 3)
         return DriverStatus::ERR_BAD_PARAM;
 
+    if (!initialized_){
+        return DriverStatus::ERR_NOT_INIT;
+    }
+
     const uint8_t ACCEL_CONFIG = 0x1C;
-    if (!i2c_->WriteField(addr_, ACCEL_CONFIG, 3, 2, static_cast<uint8_t>(setting)))
+
+    bool valid_write = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->WriteField(addr_, ACCEL_CONFIG, 3, 2, static_cast<uint8_t>(setting))) {
+            valid_write = true;
+            break;
+        }
+    }
+    if (!valid_write)
         return DriverStatus::ERR_I2C_WRITE;
+
+    uint8_t verify_val;
+
+    bool valid_read = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->ReadField(addr_, ACCEL_CONFIG, 3, 2, &verify_val)) {
+            valid_read = true;
+            break;
+        }
+    }
+
+    if (!valid_read)
+        return DriverStatus::ERR_I2C_READ;
+        
+    if (verify_val != static_cast<uint8_t>(setting))
+        return DriverStatus::ERR_VERIFY_FAILED;
 
     static constexpr float kAccelScales[4] = {16384.0f, 8192.0f, 4096.0f, 2048.0f};
     accel_scale_ = kAccelScales[setting];
+
     return DriverStatus::OK;
 }
+
 
 /**
  * SetGyroRange() — Same idea for the gyroscope.
@@ -133,27 +206,64 @@ DriverStatus MPU6050_Interface::SetGyroRange(const int FS_SEL_SETTING)
     if (FS_SEL_SETTING < 0 || FS_SEL_SETTING > 3)
         return DriverStatus::ERR_BAD_PARAM;
 
+    if (!initialized_){
+        return DriverStatus::ERR_NOT_INIT;
+    }
+
     const uint8_t GYRO_CONFIG = 0x1B;
-    if (!i2c_->WriteField(addr_, GYRO_CONFIG, 3, 2, static_cast<uint8_t>(FS_SEL_SETTING)))
+
+    bool valid_write = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->WriteField(addr_, GYRO_CONFIG, 3, 2, static_cast<uint8_t>(FS_SEL_SETTING))) {
+            valid_write = true;
+            break;
+        }
+    }
+    if (!valid_write)
         return DriverStatus::ERR_I2C_WRITE;
+
+    uint8_t verify_val;
+
+    bool valid_read = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->ReadField(addr_, GYRO_CONFIG, 3, 2, &verify_val)) {
+            valid_read = true;
+            break;
+        }
+    }
+    if (!valid_read)
+        return DriverStatus::ERR_I2C_READ;
+
+    if (verify_val != static_cast<uint8_t>(FS_SEL_SETTING))
+        return DriverStatus::ERR_VERIFY_FAILED;
 
     static constexpr float kGyroScales[4] = {131.0f, 65.5f, 32.8f, 16.4f};
     gyro_scale_ = kGyroScales[FS_SEL_SETTING];
+
     return DriverStatus::OK;
 }
+
 
 DriverStatus MPU6050_Interface::calc_sample_rate(const int sample_rate)
 {
     const uint8_t CONFIG = 0x1A;
     uint8_t DLPF_CFG_VAL;
 
-    if (!i2c_->ReadField(addr_, CONFIG, 0, 2, &DLPF_CFG_VAL))
+    bool valid_read = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->ReadField(addr_, CONFIG, 0, 2, &DLPF_CFG_VAL)) {
+            valid_read = true;
+            break;
+        }
+    }
+    if (!valid_read)
         return DriverStatus::ERR_I2C_READ;
 
     uint8_t gyro_output_rate = (DLPF_CFG_VAL != 0) ? 1 : 8;
     mpu_sample_rate_ = gyro_output_rate / (1 + sample_rate);
     return DriverStatus::OK;
 }
+
 
 /**
  * SetSampleRate() — Controls how often the chip takes a new measurement.
@@ -166,18 +276,31 @@ DriverStatus MPU6050_Interface::SetSampleRate(const int sample_rate)
     if (!i2c_)
         return DriverStatus::ERR_NULL_BUS;
 
+    if (!initialized_){
+        return DriverStatus::ERR_NOT_INIT;
+    }
+
     const uint8_t SMPLRT_DIV = 0x19;
-    if (!i2c_->WriteField(addr_, SMPLRT_DIV, 0, 7, static_cast<uint8_t>(sample_rate)))
+
+    bool valid_write = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->WriteField(addr_, SMPLRT_DIV, 0, 7, static_cast<uint8_t>(sample_rate))) {
+            valid_write = true;
+            break;
+        }
+    }
+    if (!valid_write)
         return DriverStatus::ERR_I2C_WRITE;
 
     return calc_sample_rate(sample_rate);
 }
 
+
 /**
  *
  * Reset() — Full device reset. Sets bit 7 of PWR_MGMT_1 (0x6B) to 1.
  * This resets all registers back to their power-on defaults.
- * You'd call Init() again after this. Useful if the chip gets into a weird state.
+ * You'd call Initialize() again after this. Useful if the chip gets into a weird state.
  */
 DriverStatus MPU6050_Interface::Reset()
 {
@@ -185,4 +308,91 @@ DriverStatus MPU6050_Interface::Reset()
     {
         return DriverStatus::ERR_NULL_BUS;
     }
+
+    if (!initialized_){
+        return DriverStatus::ERR_NOT_INIT;
+    }
+
+    const uint8_t PWR_MGMT_1 = 0x6B;
+
+    bool valid_write = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->WriteField(addr_, PWR_MGMT_1, 7, 1, 1)) {
+            valid_write = true;
+            break;
+        }
+    }
+    if (!valid_write)
+        return DriverStatus::ERR_I2C_WRITE;
+
+    initialized_ = false;
+
+    // pause for 100ms to let restart process
+    auto start_delay = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start_delay < std::chrono::milliseconds(100)) {
+        // wait 
+    }
+
+    DriverStatus init_status = Initialize();
+
+    if (init_status != DriverStatus::OK){
+        return init_status;
+    }
+
+    return DriverStatus::OK;
 }
+
+
+/**
+ * Sleep() / Wake() — Put the chip to sleep or wake it up. 
+ * Both write to PWR_MGMT_1 (0x6B), setting or clearing bit 6. 
+ * Sleep mode cuts power consumption dramatically when you don't need readings.
+ */
+
+DriverStatus MPU6050_Interface::Sleep(){
+    if (!i2c_){
+        return DriverStatus::ERR_NULL_BUS;
+    }
+
+    if (!initialized_)
+        return DriverStatus::ERR_NOT_INIT;
+
+    const uint8_t PWR_MGMT_1 = 0x6B;
+
+    bool valid_write = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->WriteField(addr_, PWR_MGMT_1, 6, 1, 1)) {
+            valid_write = true;
+            break;
+        }
+    }
+    if (!valid_write)
+        return DriverStatus::ERR_I2C_WRITE;
+
+    return DriverStatus::OK;
+}
+
+
+DriverStatus MPU6050_Interface::Wake()
+{
+    if (!i2c_)
+        return DriverStatus::ERR_NULL_BUS;
+
+    // No initialized_ guard — Wake() is called by Initialize() before the flag is set
+
+    const uint8_t PWR_MGMT_1 = 0x6B;
+
+    bool valid_write = false;
+    for (int retry = 0; retry < 4; retry++) {
+        if (i2c_->WriteField(addr_, PWR_MGMT_1, 6, 1, 0)) {
+            valid_write = true;
+            break;
+        }
+    }
+    if (!valid_write)
+        return DriverStatus::ERR_I2C_WRITE;
+
+    return DriverStatus::OK;
+}
+
+

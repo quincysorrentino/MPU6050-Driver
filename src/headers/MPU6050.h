@@ -3,15 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include "I2C.h"
-
-enum class DriverStatus : uint8_t {
-    OK            = 0,
-    ERR_NULL_BUS  = 1,
-    ERR_I2C_READ  = 2,
-    ERR_I2C_WRITE = 3,
-    ERR_BAD_PARAM = 4,
-    ERR_BAD_DATA  = 5,
-};
+#include "status.h"
 
 struct IMU_Raw {
     int16_t ax, ay, az;
@@ -36,17 +28,18 @@ class MPU6050_Interface {
 
     // setting: 0=±2g, 1=±4g, 2=±8g, 3=±16g
     DriverStatus SetAccelRange(int setting);
-
     // FS_SEL_SETTING: 0=±250d/s, 1=±500d/s, 2=±1000d/s, 3=±2000d/s
     DriverStatus SetGyroRange(int FS_SEL_SETTING);
-
     DriverStatus SetSampleRate(int sample_rate);
 
 	DriverStatus Reset();
+    DriverStatus Sleep();
+    DriverStatus Wake();
 
  private:
     LinuxI2c* i2c_ = nullptr;
     uint8_t addr_ = 0x68;
+    bool initialized_ = false;
 
     float accel_scale_ = 16384.0f;
     float gyro_scale_  = 131.0f;

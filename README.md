@@ -13,5 +13,3 @@ SetSampleRate() — Controls how often the chip takes a new measurement. Writes 
 Reset() — Full device reset. Sets bit 7 of PWR_MGMT_1 (0x6B) to 1. This resets all registers back to their power-on defaults. You'd call Init() again after this. Useful if the chip gets into a weird state.
 
 Sleep() / Wake() — Put the chip to sleep or wake it up. Both write to PWR_MGMT_1 (0x6B), setting or clearing bit 6. Sleep mode cuts power consumption dramatically when you don't need readings.
-
-IsDataReady() — Check if new data is available. Reads INT_STATUS (0x3A) and checks bit 0. Returns true when the chip has finished a new measurement. Useful if you don't want to read stale data.
