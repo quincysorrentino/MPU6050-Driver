@@ -10,8 +10,6 @@ SetGyroRange() — Same idea for the gyroscope. Writes to GYRO_CONFIG (0x1B), bi
 
 SetSampleRate() — Controls how often the chip takes a new measurement. Writes to SMPLRT_DIV (0x19). The formula is rate = 1000 / (1 + value). So writing 0 gives 1kHz, writing 9 gives 100Hz, writing 99 gives 10Hz. Faster rate means more data but more I2C traffic.
 
-SetDLPF() — Configures the digital low pass filter. Writes to CONFIG (0x1A), bits 2:0. This smooths out the sensor data by filtering high-frequency noise. A value of 0 means almost no filtering (260Hz bandwidth), a value of 6 means heavy filtering (5Hz bandwidth). More filtering means cleaner data but slower response.
-
 Reset() — Full device reset. Sets bit 7 of PWR_MGMT_1 (0x6B) to 1. This resets all registers back to their power-on defaults. You'd call Init() again after this. Useful if the chip gets into a weird state.
 
 Sleep() / Wake() — Put the chip to sleep or wake it up. Both write to PWR_MGMT_1 (0x6B), setting or clearing bit 6. Sleep mode cuts power consumption dramatically when you don't need readings.

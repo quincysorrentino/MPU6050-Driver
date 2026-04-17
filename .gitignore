@@ -40,3 +40,8 @@ mpu_test
 
 # debug information files
 *.dwo
+
+# Bazel
+bazel-*
+.bazel/
+MODULE.bazel.lock
