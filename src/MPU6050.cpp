@@ -39,6 +39,14 @@ DriverStatus MPU6050_Interface::Initialize()
     if (!clock_set)
         return DriverStatus::ERR_I2C_WRITE;
 
+    // check who_am_i
+    uint8_t who_am_i_check;
+    WHO_AM_I(&who_am_i_check);
+
+    if (who_am_i_check != 0x68){
+        return DriverStatus::ERR_NOT_INIT;
+    }
+
     initialized_ = true;
 
     return DriverStatus::OK;
