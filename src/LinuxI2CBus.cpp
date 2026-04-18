@@ -1,4 +1,4 @@
-#include "headers/I2C.h"
+#include "headers/LinuxI2CBus.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -7,27 +7,27 @@
 
 #include <iostream>
 
-LinuxI2c::LinuxI2c(const std::string& device_path) {
+LinuxI2CBus::LinuxI2CBus(const std::string& device_path) {
   fd_ = open(device_path.c_str(), O_RDWR);
   if (fd_ < 0) {
     std::cerr << "Failed to open I2C device: " << device_path << "\n";
   }
 }
 
-LinuxI2c::~LinuxI2c() {
+LinuxI2CBus::~LinuxI2CBus() {
   if (fd_ >= 0) {
     close(fd_);
   }
 }
 
-bool LinuxI2c::SetSlaveAddr(uint8_t addr) {
+bool LinuxI2CBus::SetSlaveAddr(uint8_t addr) {
   if (ioctl(fd_, I2C_SLAVE, addr) < 0) {
     return false;
   }
   return true;
 }
 
-bool LinuxI2c::WriteByte(uint8_t dev_addr, uint8_t reg, uint8_t value) {
+bool LinuxI2CBus::WriteByte(uint8_t dev_addr, uint8_t reg, uint8_t value) {
   if (!SetSlaveAddr(dev_addr)) {
     return false;
   }
@@ -40,7 +40,7 @@ bool LinuxI2c::WriteByte(uint8_t dev_addr, uint8_t reg, uint8_t value) {
   return true;
 }
 
-bool LinuxI2c::ReadByte(uint8_t dev_addr, uint8_t reg, uint8_t* out) {
+bool LinuxI2CBus::ReadByte(uint8_t dev_addr, uint8_t reg, uint8_t* out) {
   if (!SetSlaveAddr(dev_addr)) {
     return false;
   }
@@ -56,7 +56,7 @@ bool LinuxI2c::ReadByte(uint8_t dev_addr, uint8_t reg, uint8_t* out) {
   return true;
 }
 
-bool LinuxI2c::WriteBit(uint8_t dev_addr, uint8_t reg, uint8_t bit_num,
+bool LinuxI2CBus::WriteBit(uint8_t dev_addr, uint8_t reg, uint8_t bit_num,
                         uint8_t bit_value) {
   if (bit_num > 7 || bit_value > 1) {
     return false;
@@ -78,7 +78,7 @@ bool LinuxI2c::WriteBit(uint8_t dev_addr, uint8_t reg, uint8_t bit_num,
   return WriteByte(dev_addr, reg, updated);
 }
 
-bool LinuxI2c::WriteField(uint8_t dev_addr, uint8_t reg, uint8_t bit_start,
+bool LinuxI2CBus::WriteField(uint8_t dev_addr, uint8_t reg, uint8_t bit_start,
                           uint8_t bit_width, uint8_t value) {
   if (bit_width == 0 || bit_width > 8 || bit_start + bit_width > 8) {
     return false;
@@ -95,7 +95,7 @@ bool LinuxI2c::WriteField(uint8_t dev_addr, uint8_t reg, uint8_t bit_start,
   return WriteByte(dev_addr, reg, updated);
 }
 
-bool LinuxI2c::ReadField(uint8_t dev_addr, uint8_t reg, uint8_t bit_start,
+bool LinuxI2CBus::ReadField(uint8_t dev_addr, uint8_t reg, uint8_t bit_start,
                          uint8_t bit_width, uint8_t* out) {
   if (bit_width == 0 || bit_width > 8 || bit_start + bit_width > 8) {
     return false;
@@ -111,7 +111,7 @@ bool LinuxI2c::ReadField(uint8_t dev_addr, uint8_t reg, uint8_t bit_start,
   return true;
 }
 
-bool LinuxI2c::ReadBlock(uint8_t dev_addr, uint8_t reg, size_t count,
+bool LinuxI2CBus::ReadBlock(uint8_t dev_addr, uint8_t reg, size_t count,
                          std::vector<uint8_t>* out) {
   if (!SetSlaveAddr(dev_addr)) {
     return false;

@@ -21,7 +21,8 @@ DriverStatus MPU6050_Interface::Initialize()
     const uint8_t PWR_MGMT_1 = 0x6B;
 
     DriverStatus wake_status = Wake();
-    if (wake_status != DriverStatus::OK){
+    if (wake_status != DriverStatus::OK)
+    {
         return wake_status;
     }
 
@@ -29,13 +30,15 @@ DriverStatus MPU6050_Interface::Initialize()
     const uint8_t clock_source_ppl = 0x01;
 
     bool clock_set = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->WriteField(addr_, PWR_MGMT_1, 0, 3, clock_source_ppl)) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->WriteField(addr_, PWR_MGMT_1, 0, 3, clock_source_ppl))
+        {
             clock_set = true;
             break;
         }
     }
-    
+
     if (!clock_set)
         return DriverStatus::ERR_I2C_WRITE;
 
@@ -43,7 +46,8 @@ DriverStatus MPU6050_Interface::Initialize()
     uint8_t who_am_i_check;
     WHO_AM_I(&who_am_i_check);
 
-    if (who_am_i_check != 0x68){
+    if (who_am_i_check != 0x68)
+    {
         return DriverStatus::ERR_NOT_INIT;
     }
 
@@ -51,7 +55,6 @@ DriverStatus MPU6050_Interface::Initialize()
 
     return DriverStatus::OK;
 }
-
 
 DriverStatus MPU6050_Interface::WHO_AM_I(uint8_t *out) const
 {
@@ -62,14 +65,17 @@ DriverStatus MPU6050_Interface::WHO_AM_I(uint8_t *out) const
     std::vector<uint8_t> buf;
 
     bool valid_read = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->ReadBlock(addr_, WHO_AM_I_REG, 1, &buf)) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->ReadBlock(addr_, WHO_AM_I_REG, 1, &buf))
+        {
             valid_read = true;
             break;
         }
     }
 
-    if (!valid_read){
+    if (!valid_read)
+    {
         return DriverStatus::ERR_I2C_READ;
     }
 
@@ -77,13 +83,13 @@ DriverStatus MPU6050_Interface::WHO_AM_I(uint8_t *out) const
     return DriverStatus::OK;
 }
 
-
 DriverStatus MPU6050_Interface::ReadRaw(IMU_Raw *out)
 {
     if (!i2c_)
         return DriverStatus::ERR_NULL_BUS;
 
-    if (!initialized_){
+    if (!initialized_)
+    {
         return DriverStatus::ERR_NOT_INIT;
     }
 
@@ -91,17 +97,20 @@ DriverStatus MPU6050_Interface::ReadRaw(IMU_Raw *out)
     std::vector<uint8_t> buf;
 
     bool valid_read = false;
-    for (int retry = 0; retry < 4; retry++){
-        if (i2c_->ReadBlock(addr_, ACCEL_XOUT_H, 14, &buf)){
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->ReadBlock(addr_, ACCEL_XOUT_H, 14, &buf))
+        {
             valid_read = true;
             break;
         }
     }
 
-    if (!valid_read){
+    if (!valid_read)
+    {
         return DriverStatus::ERR_I2C_READ;
     }
-        
+
     if (buf.size() < 14)
         return DriverStatus::ERR_BAD_DATA;
 
@@ -121,7 +130,6 @@ DriverStatus MPU6050_Interface::ReadRaw(IMU_Raw *out)
     return DriverStatus::OK;
 }
 
-
 IMU_Data MPU6050_Interface::Scale(const IMU_Raw &raw)
 {
     IMU_Data data{};
@@ -134,7 +142,6 @@ IMU_Data MPU6050_Interface::Scale(const IMU_Raw &raw)
     data.gz = raw.gz / gyro_scale_;
     return data;
 }
-
 
 /**
  * Read() — Get all sensor data in one shot.
@@ -153,7 +160,6 @@ DriverStatus MPU6050_Interface::Read(IMU_Data *out)
     return DriverStatus::OK;
 }
 
-
 /**
  * SetAccelRange() — Change accelerometer sensitivity.
  * Writes to ACCEL_CONFIG (0x1C), specifically bits 4:3.
@@ -165,15 +171,18 @@ DriverStatus MPU6050_Interface::SetAccelRange(const int setting)
     if (setting < 0 || setting > 3)
         return DriverStatus::ERR_BAD_PARAM;
 
-    if (!initialized_){
+    if (!initialized_)
+    {
         return DriverStatus::ERR_NOT_INIT;
     }
 
     const uint8_t ACCEL_CONFIG = 0x1C;
 
     bool valid_write = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->WriteField(addr_, ACCEL_CONFIG, 3, 2, static_cast<uint8_t>(setting))) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->WriteField(addr_, ACCEL_CONFIG, 3, 2, static_cast<uint8_t>(setting)))
+        {
             valid_write = true;
             break;
         }
@@ -184,8 +193,10 @@ DriverStatus MPU6050_Interface::SetAccelRange(const int setting)
     uint8_t verify_val;
 
     bool valid_read = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->ReadField(addr_, ACCEL_CONFIG, 3, 2, &verify_val)) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->ReadField(addr_, ACCEL_CONFIG, 3, 2, &verify_val))
+        {
             valid_read = true;
             break;
         }
@@ -193,7 +204,7 @@ DriverStatus MPU6050_Interface::SetAccelRange(const int setting)
 
     if (!valid_read)
         return DriverStatus::ERR_I2C_READ;
-        
+
     if (verify_val != static_cast<uint8_t>(setting))
         return DriverStatus::ERR_VERIFY_FAILED;
 
@@ -202,7 +213,6 @@ DriverStatus MPU6050_Interface::SetAccelRange(const int setting)
 
     return DriverStatus::OK;
 }
-
 
 /**
  * SetGyroRange() — Same idea for the gyroscope.
@@ -214,15 +224,18 @@ DriverStatus MPU6050_Interface::SetGyroRange(const int FS_SEL_SETTING)
     if (FS_SEL_SETTING < 0 || FS_SEL_SETTING > 3)
         return DriverStatus::ERR_BAD_PARAM;
 
-    if (!initialized_){
+    if (!initialized_)
+    {
         return DriverStatus::ERR_NOT_INIT;
     }
 
     const uint8_t GYRO_CONFIG = 0x1B;
 
     bool valid_write = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->WriteField(addr_, GYRO_CONFIG, 3, 2, static_cast<uint8_t>(FS_SEL_SETTING))) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->WriteField(addr_, GYRO_CONFIG, 3, 2, static_cast<uint8_t>(FS_SEL_SETTING)))
+        {
             valid_write = true;
             break;
         }
@@ -233,8 +246,10 @@ DriverStatus MPU6050_Interface::SetGyroRange(const int FS_SEL_SETTING)
     uint8_t verify_val;
 
     bool valid_read = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->ReadField(addr_, GYRO_CONFIG, 3, 2, &verify_val)) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->ReadField(addr_, GYRO_CONFIG, 3, 2, &verify_val))
+        {
             valid_read = true;
             break;
         }
@@ -251,15 +266,16 @@ DriverStatus MPU6050_Interface::SetGyroRange(const int FS_SEL_SETTING)
     return DriverStatus::OK;
 }
 
-
 DriverStatus MPU6050_Interface::calc_sample_rate(const int sample_rate)
 {
     const uint8_t CONFIG = 0x1A;
     uint8_t DLPF_CFG_VAL;
 
     bool valid_read = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->ReadField(addr_, CONFIG, 0, 2, &DLPF_CFG_VAL)) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->ReadField(addr_, CONFIG, 0, 3, &DLPF_CFG_VAL))
+        {
             valid_read = true;
             break;
         }
@@ -272,7 +288,6 @@ DriverStatus MPU6050_Interface::calc_sample_rate(const int sample_rate)
     return DriverStatus::OK;
 }
 
-
 /**
  * SetSampleRate() — Controls how often the chip takes a new measurement.
  * Writes to SMPLRT_DIV (0x19). The formula is rate = 1000 / (1 + value).
@@ -284,15 +299,18 @@ DriverStatus MPU6050_Interface::SetSampleRate(const int sample_rate)
     if (!i2c_)
         return DriverStatus::ERR_NULL_BUS;
 
-    if (!initialized_){
+    if (!initialized_)
+    {
         return DriverStatus::ERR_NOT_INIT;
     }
 
     const uint8_t SMPLRT_DIV = 0x19;
 
     bool valid_write = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->WriteField(addr_, SMPLRT_DIV, 0, 7, static_cast<uint8_t>(sample_rate))) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->WriteField(addr_, SMPLRT_DIV, 0, 7, static_cast<uint8_t>(sample_rate)))
+        {
             valid_write = true;
             break;
         }
@@ -303,6 +321,61 @@ DriverStatus MPU6050_Interface::SetSampleRate(const int sample_rate)
     return calc_sample_rate(sample_rate);
 }
 
+/**
+ * SetDLPF() — Configure the Digital Low Pass Filter on both gyro and accel.
+ * Writes to CONFIG (0x1A) bits 2:0. cfg=0 is no filter (8kHz gyro output rate);
+ * cfg=1–6 progressively narrow the bandwidth down to 5Hz at cfg=6 (1kHz output rate).
+ * Also recalculates the stored sample rate since DLPF changes the gyro output rate.
+ */
+DriverStatus MPU6050_Interface::SetDLPF(const int cfg)
+{
+    if (!i2c_)
+        return DriverStatus::ERR_NULL_BUS;
+    if (!initialized_)
+        return DriverStatus::ERR_NOT_INIT;
+    if (cfg < 0 || cfg > 6)
+        return DriverStatus::ERR_BAD_PARAM;
+
+    const uint8_t CONFIG = 0x1A;
+    const uint8_t SMPLRT_DIV = 0x19;
+
+    bool valid_write = false;
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->WriteField(addr_, CONFIG, 0, 3, static_cast<uint8_t>(cfg)))
+        {
+            valid_write = true;
+            break;
+        }
+    }
+    if (!valid_write)
+        return DriverStatus::ERR_I2C_WRITE;
+
+    uint8_t verify_val;
+    bool valid_read = false;
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->ReadField(addr_, CONFIG, 0, 3, &verify_val))
+        {
+            valid_read = true;
+            break;
+        }
+    }
+    if (!valid_read)
+        return DriverStatus::ERR_I2C_READ;
+
+    if (verify_val != static_cast<uint8_t>(cfg))
+        return DriverStatus::ERR_VERIFY_FAILED;
+
+    // DLPF change affects gyro output rate, so recalculate the stored sample rate
+    uint8_t current_div = 0;
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->ReadField(addr_, SMPLRT_DIV, 0, 8, &current_div))
+            break;
+    }
+    return calc_sample_rate(current_div);
+}
 
 /**
  *
@@ -317,15 +390,18 @@ DriverStatus MPU6050_Interface::Reset()
         return DriverStatus::ERR_NULL_BUS;
     }
 
-    if (!initialized_){
+    if (!initialized_)
+    {
         return DriverStatus::ERR_NOT_INIT;
     }
 
     const uint8_t PWR_MGMT_1 = 0x6B;
 
     bool valid_write = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->WriteField(addr_, PWR_MGMT_1, 7, 1, 1)) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->WriteField(addr_, PWR_MGMT_1, 7, 1, 1))
+        {
             valid_write = true;
             break;
         }
@@ -337,28 +413,31 @@ DriverStatus MPU6050_Interface::Reset()
 
     // pause for 100ms to let restart process
     auto start_delay = std::chrono::steady_clock::now();
-    while (std::chrono::steady_clock::now() - start_delay < std::chrono::milliseconds(100)) {
-        // wait 
+    while (std::chrono::steady_clock::now() - start_delay < std::chrono::milliseconds(100))
+    {
+        // wait
     }
 
     DriverStatus init_status = Initialize();
 
-    if (init_status != DriverStatus::OK){
+    if (init_status != DriverStatus::OK)
+    {
         return init_status;
     }
 
     return DriverStatus::OK;
 }
 
-
 /**
- * Sleep() / Wake() — Put the chip to sleep or wake it up. 
- * Both write to PWR_MGMT_1 (0x6B), setting or clearing bit 6. 
+ * Sleep() / Wake() — Put the chip to sleep or wake it up.
+ * Both write to PWR_MGMT_1 (0x6B), setting or clearing bit 6.
  * Sleep mode cuts power consumption dramatically when you don't need readings.
  */
 
-DriverStatus MPU6050_Interface::Sleep(){
-    if (!i2c_){
+DriverStatus MPU6050_Interface::Sleep()
+{
+    if (!i2c_)
+    {
         return DriverStatus::ERR_NULL_BUS;
     }
 
@@ -368,8 +447,10 @@ DriverStatus MPU6050_Interface::Sleep(){
     const uint8_t PWR_MGMT_1 = 0x6B;
 
     bool valid_write = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->WriteField(addr_, PWR_MGMT_1, 6, 1, 1)) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->WriteField(addr_, PWR_MGMT_1, 6, 1, 1))
+        {
             valid_write = true;
             break;
         }
@@ -379,7 +460,6 @@ DriverStatus MPU6050_Interface::Sleep(){
 
     return DriverStatus::OK;
 }
-
 
 DriverStatus MPU6050_Interface::Wake()
 {
@@ -391,8 +471,10 @@ DriverStatus MPU6050_Interface::Wake()
     const uint8_t PWR_MGMT_1 = 0x6B;
 
     bool valid_write = false;
-    for (int retry = 0; retry < 4; retry++) {
-        if (i2c_->WriteField(addr_, PWR_MGMT_1, 6, 1, 0)) {
+    for (int retry = 0; retry < 4; retry++)
+    {
+        if (i2c_->WriteField(addr_, PWR_MGMT_1, 6, 1, 0))
+        {
             valid_write = true;
             break;
         }
@@ -402,5 +484,3 @@ DriverStatus MPU6050_Interface::Wake()
 
     return DriverStatus::OK;
 }
-
-

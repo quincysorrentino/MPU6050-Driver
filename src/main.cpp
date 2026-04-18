@@ -1,4 +1,4 @@
-#include "headers/I2C.h"
+#include "headers/LinuxI2CBus.h"
 #include "headers/MPU6050.h"
 
 #include <iostream>
@@ -6,7 +6,7 @@
 #include <thread>
 
 int main() {
-  LinuxI2c i2c("/dev/i2c-1");
+  LinuxI2CBus i2c("/dev/i2c-1");
   MPU6050_Interface mpu(&i2c);
 
   if (mpu.Initialize() != DriverStatus::OK) {
