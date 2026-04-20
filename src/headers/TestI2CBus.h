@@ -18,6 +18,7 @@ class TestI2CBus : public I2CBus {
 
     // Pre-load a register value before a test
     void SetRegister(uint8_t reg, uint8_t value) { registers_[reg] = value; }
+    uint8_t GetRegister(uint8_t reg) const { return registers_[reg]; }
 
     // Make reads or writes to a specific register fail
     void SetRegisterBehavior(uint8_t reg, RegBehavior behavior) {

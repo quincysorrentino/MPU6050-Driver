@@ -128,6 +128,25 @@ TEST(MPU6050, SetGyroRange_ValidSettings_ReturnOK) {
     }
 }
 
+// ───── SetSampleRate ─────
+
+TEST(MPU6050, SetSampleRate_BadParam_ReturnsErrBadParam) {
+    TestI2CBus bus = MakeHealthyBus();
+    MPU6050_Interface driver(&bus);
+    driver.Initialize();
+    EXPECT_EQ(driver.SetSampleRate(-1), DriverStatus::ERR_BAD_PARAM);
+    EXPECT_EQ(driver.SetSampleRate(256), DriverStatus::ERR_BAD_PARAM);
+}
+
+TEST(MPU6050, SetSampleRate_WritesFullEightBits) {
+    TestI2CBus bus = MakeHealthyBus();
+    MPU6050_Interface driver(&bus);
+    driver.Initialize();
+
+    ASSERT_EQ(driver.SetSampleRate(255), DriverStatus::OK);
+    EXPECT_EQ(bus.GetRegister(0x19), 0xFF);
+}
+
 // ───── SetDLPF ─────
 
 TEST(MPU6050, SetDLPF_BadParam_ReturnsErrBadParam) {
@@ -145,6 +164,14 @@ TEST(MPU6050, SetDLPF_ValidSettings_ReturnOK) {
         driver.Initialize();
         EXPECT_EQ(driver.SetDLPF(cfg), DriverStatus::OK);
     }
+}
+
+TEST(MPU6050, SetDLPF_SampleDivReadFails_ReturnsErrI2CRead) {
+    TestI2CBus bus = MakeHealthyBus();
+    MPU6050_Interface driver(&bus);
+    driver.Initialize();
+    bus.SetRegisterBehavior(0x19, RegBehavior::FAIL_READ); // SMPLRT_DIV
+    EXPECT_EQ(driver.SetDLPF(3), DriverStatus::ERR_I2C_READ);
 }
 
 // ───── Read ─────

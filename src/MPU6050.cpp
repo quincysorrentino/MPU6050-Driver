@@ -44,8 +44,12 @@ DriverStatus MPU6050_Interface::Initialize()
         return DriverStatus::ERR_I2C_WRITE;
 
     // check who_am_i
-    uint8_t who_am_i_check;
-    WHO_AM_I(&who_am_i_check);
+    uint8_t who_am_i_check = 0;
+    DriverStatus who_status = WHO_AM_I(&who_am_i_check);
+    if (who_status != DriverStatus::OK)
+    {
+        return who_status;
+    }
 
     if (who_am_i_check != 0x68)
     {
@@ -284,8 +288,8 @@ DriverStatus MPU6050_Interface::calc_sample_rate(const int sample_rate)
     if (!valid_read)
         return DriverStatus::ERR_I2C_READ;
 
-    uint8_t gyro_output_rate = (DLPF_CFG_VAL != 0) ? 1 : 8;
-    mpu_sample_rate_ = gyro_output_rate / (1 + sample_rate);
+    const float gyro_output_rate_khz = (DLPF_CFG_VAL != 0) ? 1.0f : 8.0f;
+    mpu_sample_rate_ = gyro_output_rate_khz / static_cast<float>(1 + sample_rate);
     return DriverStatus::OK;
 }
 
@@ -305,12 +309,17 @@ DriverStatus MPU6050_Interface::SetSampleRate(const int sample_rate)
         return DriverStatus::ERR_NOT_INIT;
     }
 
+    if (sample_rate < 0 || sample_rate > 255)
+    {
+        return DriverStatus::ERR_BAD_PARAM;
+    }
+
     const uint8_t SMPLRT_DIV = 0x19;
 
     bool valid_write = false;
     for (int retry = 0; retry < 4; retry++)
     {
-        if (i2c_->WriteField(addr_, SMPLRT_DIV, 0, 7, static_cast<uint8_t>(sample_rate)))
+        if (i2c_->WriteField(addr_, SMPLRT_DIV, 0, 8, static_cast<uint8_t>(sample_rate)))
         {
             valid_write = true;
             break;
@@ -370,11 +379,18 @@ DriverStatus MPU6050_Interface::SetDLPF(const int cfg)
 
     // DLPF change affects gyro output rate, so recalculate the stored sample rate
     uint8_t current_div = 0;
+    bool smplrt_div_read = false;
     for (int retry = 0; retry < 4; retry++)
     {
         if (i2c_->ReadField(addr_, SMPLRT_DIV, 0, 8, &current_div))
+        {
+            smplrt_div_read = true;
             break;
+        }
     }
+    if (!smplrt_div_read)
+        return DriverStatus::ERR_I2C_READ;
+
     return calc_sample_rate(current_div);
 }
 
