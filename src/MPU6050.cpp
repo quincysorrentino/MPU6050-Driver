@@ -536,10 +536,10 @@ DriverStatus MPU6050_Interface::Calibrate(){
         gz_sum += raw.gz;
     }
 
-    // calc offsets (negate mean)
+    // calc offsets — ax/ay expected 0, az expected +1g (accel_scale_) when flat
     int16_t ax_off = static_cast<int16_t>(-(ax_sum / 500));
     int16_t ay_off = static_cast<int16_t>(-(ay_sum / 500));
-    int16_t az_off = static_cast<int16_t>(-(az_sum / 500));
+    int16_t az_off = static_cast<int16_t>(static_cast<int32_t>(accel_scale_) - (az_sum / 500));
     int16_t gx_off = static_cast<int16_t>(-(gx_sum / 500));
     int16_t gy_off = static_cast<int16_t>(-(gy_sum / 500));
     int16_t gz_off = static_cast<int16_t>(-(gz_sum / 500));
