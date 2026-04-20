@@ -4,8 +4,9 @@
 #include <cstdint>
 #include <chrono>
 #include <cmath>
+#include "headers/I2CBus.h"
 
-MPU6050_Interface::MPU6050_Interface(LinuxI2c *i2c, uint8_t address)
+MPU6050_Interface::MPU6050_Interface(I2CBus *i2c, uint8_t address)
     : i2c_(i2c), addr_(address) {}
 
 /**
@@ -48,7 +49,7 @@ DriverStatus MPU6050_Interface::Initialize()
 
     if (who_am_i_check != 0x68)
     {
-        return DriverStatus::ERR_NOT_INIT;
+        return DriverStatus::ERR_I2C_READ;
     }
 
     initialized_ = true;
@@ -481,6 +482,89 @@ DriverStatus MPU6050_Interface::Wake()
     }
     if (!valid_write)
         return DriverStatus::ERR_I2C_WRITE;
+
+    return DriverStatus::OK;
+}
+
+DriverStatus MPU6050_Interface::Calibrate(){
+    if (!i2c_)
+        return DriverStatus::ERR_NULL_BUS;
+    
+
+    if (!initialized_)
+        return DriverStatus::ERR_NOT_INIT;
+    
+    // take average of 500 samples
+    int32_t ax_sum = 0, ay_sum = 0, az_sum = 0;
+    int32_t gx_sum = 0, gy_sum = 0, gz_sum = 0;
+
+    for (int i = 0; i < 500; i++){
+        IMU_Raw raw;
+
+        bool valid_read = false;
+        for (int retry = 0; retry < 4; retry++){
+            if (ReadRaw(&raw) == DriverStatus::OK){
+                valid_read = true;
+                break;
+            }
+        }
+
+        if (!valid_read)
+            return DriverStatus::ERR_I2C_READ;
+
+        ax_sum += raw.ax;
+        ay_sum += raw.ay;
+        az_sum += raw.az;
+        gx_sum += raw.gx;
+        gy_sum += raw.gy;
+        gz_sum += raw.gz;
+    }
+
+    // calc offsets (negate mean)
+    int16_t ax_off = static_cast<int16_t>(-(ax_sum / 500));
+    int16_t ay_off = static_cast<int16_t>(-(ay_sum / 500));
+    int16_t az_off = static_cast<int16_t>(-(az_sum / 500));
+    int16_t gx_off = static_cast<int16_t>(-(gx_sum / 500));
+    int16_t gy_off = static_cast<int16_t>(-(gy_sum / 500));
+    int16_t gz_off = static_cast<int16_t>(-(gz_sum / 500));
+
+    // write gyro offsets to 0x13–0x18
+    const uint8_t GYRO_OFFSET_BASE = 0x13;
+    int16_t gyro_offs[3] = {gx_off, gy_off, gz_off};
+
+    for (int axis = 0; axis < 3; axis++){
+        uint8_t high = static_cast<uint8_t>(gyro_offs[axis] >> 8);
+        uint8_t low  = static_cast<uint8_t>(gyro_offs[axis] & 0xFF);
+        if (!i2c_->WriteField(addr_, GYRO_OFFSET_BASE + axis * 2, 0, 8, high))
+            return DriverStatus::ERR_I2C_WRITE;
+        if (!i2c_->WriteField(addr_, GYRO_OFFSET_BASE + axis * 2 + 1, 0, 8, low))
+            return DriverStatus::ERR_I2C_WRITE;
+    }
+
+    // write accel offsets to 0x06–0x0B
+    const uint8_t ACCEL_OFFSET_BASE = 0x06;
+    int16_t accel_offs[3] = {ax_off, ay_off, az_off};
+    for (int axis = 0; axis < 3; axis++){
+        uint8_t low_reg = ACCEL_OFFSET_BASE + axis * 2 + 1;
+
+        // read existing low byte to preserve factory trim bit 0
+        std::vector<uint8_t> existing;
+
+        if (!i2c_->ReadBlock(addr_, low_reg, 1, &existing))
+            return DriverStatus::ERR_I2C_READ;
+        uint8_t trim_bit = existing[0] & 0x01;
+
+        int16_t scaled = static_cast<int16_t>(accel_offs[axis] / 8);
+        int16_t reg_val = static_cast<int16_t>((scaled << 1) | trim_bit);
+
+        uint8_t high = static_cast<uint8_t>(reg_val >> 8);
+        uint8_t low  = static_cast<uint8_t>(reg_val & 0xFF);
+
+        if (!i2c_->WriteField(addr_, ACCEL_OFFSET_BASE + axis * 2, 0, 8, high))
+            return DriverStatus::ERR_I2C_WRITE;
+        if (!i2c_->WriteField(addr_, low_reg, 0, 8, low))
+            return DriverStatus::ERR_I2C_WRITE;
+    }
 
     return DriverStatus::OK;
 }

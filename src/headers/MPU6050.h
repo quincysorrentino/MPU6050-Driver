@@ -39,6 +39,7 @@ public:
     DriverStatus Reset();
     DriverStatus Sleep();
     DriverStatus Wake();
+    DriverStatus Calibrate();
 
 private:
     I2CBus *i2c_ = nullptr;
