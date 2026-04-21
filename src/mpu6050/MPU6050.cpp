@@ -406,11 +406,6 @@ DriverStatus MPU6050_Interface::Reset()
         return DriverStatus::ERR_NULL_BUS;
     }
 
-    if (!initialized_)
-    {
-        return DriverStatus::ERR_NOT_INIT;
-    }
-
     const uint8_t PWR_MGMT_1 = 0x6B;
 
     bool valid_write = false;
