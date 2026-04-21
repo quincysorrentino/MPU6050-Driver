@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "../src/headers/TestI2CBus.h"
-#include "../src/headers/MPU6050.h"
+#include "common/TestI2CBus.h"
+#include "mpu6050/MPU6050.h"
 
 // Helper: returns a TestI2CBus pre-seeded so Initialize() succeeds
 // WHO_AM_I register (0x75) must return 0x68

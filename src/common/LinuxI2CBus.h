@@ -1,7 +1,7 @@
 // I2C interface for Linux I2C-dev.
 #pragma once
 
-#include "I2CBus.h"
+#include "common/I2CBus.h"
 #include <cstddef>
 #include <cstdint>
 #include <string>

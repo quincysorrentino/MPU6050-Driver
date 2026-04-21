@@ -1,10 +1,9 @@
-#include "headers/MPU6050.h"
+#include "MPU6050.h"
 
 #include <vector>
 #include <cstdint>
 #include <chrono>
 #include <cmath>
-#include "headers/I2CBus.h"
 
 MPU6050_Interface::MPU6050_Interface(I2CBus *i2c, uint8_t address)
     : i2c_(i2c), addr_(address) {}

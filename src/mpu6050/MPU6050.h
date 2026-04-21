@@ -2,8 +2,8 @@
 
 #include <cstdint>
 #include <vector>
-#include "I2CBus.h"
-#include "status.h"
+#include "common/I2CBus.h"
+#include "common/status.h"
 
 struct IMU_Raw
 {

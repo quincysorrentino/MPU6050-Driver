@@ -1,4 +1,4 @@
-#include "headers/LinuxI2CBus.h"
+#include "LinuxI2CBus.h"
 
 #include <fcntl.h>
 #include <unistd.h>

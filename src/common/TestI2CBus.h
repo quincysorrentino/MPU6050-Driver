@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "I2CBus.h"
+#include "common/I2CBus.h"
 
 enum class RegBehavior {
     OK,

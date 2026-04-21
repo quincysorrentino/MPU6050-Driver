@@ -1,5 +1,5 @@
-#include "headers/LinuxI2CBus.h"
-#include "headers/MPU6050.h"
+#include "common/LinuxI2CBus.h"
+#include "mpu6050/MPU6050.h"
 
 #include <iostream>
 #include <iomanip>
