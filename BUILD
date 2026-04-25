@@ -35,6 +35,7 @@ cc_library(
 
 cc_library(
     name = "bme280",
+    srcs = ["src/bme280/BME280.cpp"],
     hdrs = ["src/bme280/BME280.h"],
     strip_include_prefix = "src",
     deps = [":linux_i2c_bus"],
@@ -43,7 +44,7 @@ cc_library(
 cc_binary(
     name = "mpu_driver",
     srcs = ["src/main.cpp"],
-    deps = [":mpu6050", ":linux_i2c_bus"],
+    deps = [":bme280", ":linux_i2c_bus"],
 )
 
 cc_test(
