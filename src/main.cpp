@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <thread>
 #include <chrono>
+#include <string>
 
 int main()
 {
@@ -30,10 +31,15 @@ int main()
         double press_hpa = (d.pressure / 256.0) / 100.0;
         double hum_pct   = d.humidity / 1024.0;
 
-        std::cout << std::fixed << std::setprecision(2)
-                  << "Temp=" << std::setw(6) << temp_c    << " C"
-                  << "   Pressure=" << std::setw(8) << press_hpa << " hPa"
-                  << "   Humidity=" << std::setw(6) << hum_pct   << " %RH\n";
+        auto now = std::chrono::system_clock::now();
+        auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+
+        std::cout << "{"
+          << "\"ts\":"       << timestamp   << ","
+          << "\"temp\":"     << temp_c      << ","
+          << "\"pressure\":" << press_hpa   << ","
+          << "\"humidity\":" << hum_pct
+          << "}\n";
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
